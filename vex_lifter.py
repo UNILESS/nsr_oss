@@ -3,16 +3,16 @@ import hashlib
 import os
 import time
 import json
-from typing import Optional, List, Dict, Any, Tuple
 import pyvex
 import archinfo
+
+from typing import Optional, List, Dict, Any, Tuple
+
 import pickle
-import proto_strand_pb2
 from r2_export import R2Exporter
 from disas_property import BinProperty, FuncProperty
 from strand import VexStrand, FullStrandExtractor, PROTO_FUNC_REV, PROTO_BIN_REV, PROTO_BIN_TAG_REV
 from bin_meta import BinMeta
-
 
 MAX_ALLOWED_IRSB_COUNT = 2048
 
@@ -33,25 +33,22 @@ class VexLifter:
     text_size: int
     # Store Strands
     func_prop_dict: Dict[str, FuncProperty]
-    # Protobuf
-    pb_bin: proto_strand_pb2.Binary
     # Mode
     verbose_mode: bool
     debug_mode: bool
 
     def __init__(self, bin_file_path: str, dest_dir: str,
                  verbose: bool = False, debug: bool = False):
-        self.bin_path = os.path.abspath(bin_file_path)
+        self.bin_path = bin_file_path
         self.bin_dir = os.path.dirname(self.bin_path)
         self.bin_file_name = os.path.basename(bin_file_path)
-        self.bin_file_size = os.path.getsize(self.bin_path)
+        self.bin_file_size = (os.path.getsize(bin_file_path.replace('"', '')))
         self.dest_dir = os.path.abspath(dest_dir)
         self.bin_arch = None
         self.bin_arch_str = ""
         self.func_prop_dict = {}
         self.bb_addr_dict = {}
         self.strand_dict = {}
-        self.pb_bin = proto_strand_pb2.Binary()
         self.verbose_mode = verbose
         self.debug_mode = debug
 
@@ -110,7 +107,8 @@ class VexLifter:
             while irsb_pos < func_prop.size:
                 addr = func_prop.addr + irsb_pos
                 max_bytes: int = func_prop.size - irsb_pos
-                irsb: pyvex.IRSB = pyvex.lift(func_prop.raw_bytes, addr, self.bin_arch, bytes_offset=irsb_pos, max_bytes=max_bytes, opt_level=1)
+                irsb: pyvex.IRSB = pyvex.lift(func_prop.raw_bytes, addr, self.bin_arch, bytes_offset=irsb_pos,
+                                              max_bytes=max_bytes, opt_level=1)
 
                 if irsb.size == 0:
                     break
@@ -192,14 +190,15 @@ class VexLifter:
                     strands: List[VexStrand] = extractor.extract_strands()
                     strand_list.extend(strands)
 
-                # Encode function into protobuf
-                self.add_func_to_protobuf(func_prop, strand_list, bb_addr_list, True)
+                # Encode function into pickle
+                self.add_func_to_pickle(func_prop, strand_list, bb_addr_list, True)
 
                 # Print progress
                 if self.verbose_mode:
-                    print(f"[{idx:4}/{func_count:4}] {func_name:<35}: {len(irsb_list):5} IRSB, {len(strand_list):5} strands")
+                    print(
+                        f"[{idx:4}/{func_count:4}] {func_name:<35}: {len(irsb_list):5} IRSB, {len(strand_list):5} strands")
             else:
-                self.add_func_to_protobuf(func_prop, None, None, False)
+                self.add_func_to_pickle(func_prop, None, None, False)
 
                 # Print progress
                 if self.verbose_mode:
@@ -209,64 +208,42 @@ class VexLifter:
         if self.verbose_mode:
             print(f"Stage took {all_end - all_start:1.3f}s")
 
-    def fit_bin_into_protobuf(self, bin_meta: BinMeta):
-        # Binary Information
-        self.pb_bin.title = bin_meta.title
-        self.pb_bin.file_name = self.bin_file_name
-        self.pb_bin.file_size = self.bin_file_size
-        self.pb_bin.revision = PROTO_BIN_REV
-        self.pb_bin.text_offset = self.text_offset
-        self.pb_bin.text_size = self.text_size
+    def fit_bin_into_pickle(self, bin_meta: BinMeta):
 
         # Binary Hash
         md5 = hashlib.md5()
         sha1 = hashlib.sha1()
-        with open(self.bin_path, "rb") as f:
+        with open(self.bin_path.replace('"', ''), "rb") as f:
             buf: bytes = f.read()
             md5.update(buf)
             sha1.update(buf)
-        self.pb_bin.md5 = md5.digest()
-        self.pb_bin.sha1 = sha1.digest()
 
-        # Binary Tag
-        bin_tag_dict: Dict[str, Any] = {
-            "revision": PROTO_BIN_TAG_REV,
-            "vendor": bin_meta.vendor,
-            "product": bin_meta.product,
-            "version": bin_meta.version,
-            "compiler_name": bin_meta.compiler_name,
-            "compiler_ver": bin_meta.compiler_ver,
-            "compile_opts": bin_meta.compile_opts,
-            "tag": bin_meta.tag,
+    import os
+
+    def add_func_to_pickle(self, func_prop: FuncProperty, strands: Optional[List[VexStrand]],
+                           bb_addrs: Optional[List[int]], parsed_bytes: bool):
+        func_data = {
+            'name': func_prop.name,
+            'addr': func_prop.addr,
+            'size': func_prop.size,
+            'text_offset': func_prop.text_offset,
+            'call_count': func_prop.call_count,
+            'revision': PROTO_FUNC_REV,
+            'strands': strands if parsed_bytes else None,
+            'bb_addrs': bb_addrs if parsed_bytes else None
         }
-        if self.debug_mode:
-            self.pb_bin.tag = json.dumps(bin_tag_dict, sort_keys=True, indent=2)
-        else:
-            self.pb_bin.tag = json.dumps(bin_tag_dict)
 
-    def add_func_to_protobuf(self, func_prop: FuncProperty, strands: Optional[List[VexStrand]], bb_addrs: Optional[List[int]], parsed_bytes: bool):
-        pb_func = self.pb_bin.functions.add()
-        pb_func.name = func_prop.name
-        pb_func.addr = func_prop.addr
-        pb_func.size = func_prop.size
-        pb_func.text_offset = func_prop.text_offset
-        pb_func.call_count = func_prop.call_count
-        pb_func.revision = PROTO_FUNC_REV
+        func_dir = os.path.join(self.dest_dir, os.path.basename(self.bin_path))
+        os.makedirs(func_dir, exist_ok=True)
 
-        if parsed_bytes:
-            # Strands
-            pb_func.total_strand_count = len(strands)
-            for strand in strands:
-                pb_strand = pb_func.strands.add()
-                strand.write_protobuf(pb_strand, self.debug_mode)
-            # Basic Block Addresses
-            for bb_addr in bb_addrs:
-                pb_func.bb_addrs.append(bb_addr)
+        func_file = os.path.join(func_dir, f"{func_prop.name}.pickle")
+        with open(func_file, 'wb') as file:
+            pickle.dump(func_data, file)
 
-    def export_protobuf(self, dest_dir, bin_path):
+    def export_pickle(self, dest_dir):
         if self.verbose_mode:
             print()
-            print("[Stage 3] Export protobuf into a file")
+            print("[Stage 3] Export pickle into a file")
 
         # Save to file
         if self.verbose_mode:
@@ -274,10 +251,9 @@ class VexLifter:
             print("  Saving...", end="", flush=True)
         commit_start = time.monotonic()
 
-        dest_file: str = os.path.join(dest_dir, f"{os.path.basename(bin_path)}.pickle")
-        with open(dest_file, "wb") as f:
-            # json.dump(self.pb_bin.SerializeToString(), f)
-            pickle.dump(self.pb_bin.SerializeToString(), f)
+        dest_file: str = os.path.join(dest_dir, "_.pickle_strands")
+        with open(dest_file.replace('"', ''), "wb") as f:
+            pickle.dump(self.func_prop_dict, f)
 
         if self.verbose_mode:
             commit_end = time.monotonic()

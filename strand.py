@@ -6,7 +6,7 @@ import pyvex
 import hashlib
 from enum import IntEnum, auto
 from pyvex import IRStmt
-import proto_strand_pb2
+
 
 # Protobuf Schema Revision
 PROTO_BIN_REV = 4
@@ -141,21 +141,6 @@ class VStmt:
         m = hashlib.md5()
         m.update(self.hash_str().encode("utf-8"))
         return m.digest()
-
-    def write_protobuf(self, pb_inst: proto_strand_pb2.Instruction, debug: bool):
-        pb_inst.index = self.idx
-        pb_inst.stmt_type = int(IRStmtTag.str_to_enum(self.stmt.tag))
-        pb_inst.addr = self.addr
-        pb_inst.full_hash = self.hash_stmt()
-        pb_inst.revision = PROTO_INST_REV
-        if debug:
-            pb_inst.full_str = self.hash_str()
-            pb_inst.desc = self.str_detail()
-
-    def export_protobuf(self, debug: bool) -> proto_strand_pb2.Instruction:
-        pb_inst = proto_strand_pb2.Instruction()
-        self.write_protobuf(pb_inst, debug)
-        return pb_inst
 
 
 class IRStmtTag(IntEnum):
@@ -326,26 +311,6 @@ class VexStrand:
         for stmt in self.stmts:
             strs.append(f"[{stmt.idx}] {stmt.hash_str()}")
         return "\n".join(strs)
-
-    def write_protobuf(self, pb_strand: proto_strand_pb2.Strand, debug: bool):
-        pb_strand.bb_addr = self.bb_addr
-        pb_strand.input_hash = Offset.hash_offset_digest(self.inputs)
-        pb_strand.output_hash = Offset.hash_offset_digest(self.outputs)
-        pb_strand.jumpkind = int(self.jumpkind)
-        for vstmt in self.stmts:
-            pb_inst = pb_strand.insts.add()
-            vstmt.write_protobuf(pb_inst, debug)
-        pb_strand.revision = PROTO_STRAND_REV
-        if debug:
-            pb_strand.desc = self.str_detail()
-            pb_strand.input_str = "".join(Offset.hash_offset_tokens(self.inputs))
-            pb_strand.output_str = "".join(Offset.hash_offset_tokens(self.outputs))
-
-    def export_protobuf(self, debug: bool) -> proto_strand_pb2.Strand:
-        pb_strand = proto_strand_pb2.Strand()
-        self.write_protobuf(pb_strand, debug)
-        return pb_strand
-
 
 class FullStrandExtractor:
     irsb: pyvex.IRSB

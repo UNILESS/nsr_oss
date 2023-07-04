@@ -8,8 +8,8 @@ import time
 import base64
 from typing import Dict, List, Any, Pattern, Optional, Match
 import r2pipe
-from disas_property import BinProperty, FuncProperty
 
+from disas_property import BinProperty, FuncProperty
 
 TIMEOUT_SEC: int = 4 * 60
 
@@ -42,8 +42,7 @@ class R2Exporter:
         r2_flags: List[str] = ["-2"]
         if self.debug:
             r2_flags = []
-        r2: r2pipe.open = r2pipe.open(self.bin_file_path, flags=r2_flags)
-
+        r2: r2pipe.open = r2pipe.open(self.bin_file_path.replace('"', ''), flags=r2_flags, radare2home=None)
         # Set timeout as 5min
         r2.cmd(f"e anal.timeout={TIMEOUT_SEC}")
 
@@ -106,8 +105,8 @@ class R2Exporter:
                 return
 
             # Create an instance of function property
-            func_name_regex: Pattern[str] = re.compile("(?:sym\\.)(?!imp\\.)(.+)")
-            func_export_regex: Pattern[str] = re.compile("(?:sym\\.)(?:.+)\\.dll_(.+)")
+            func_name_regex: Pattern[str] = re.compile("(?:(?:sym)|(?:dbg)\\.)(?!imp\\.)(.+)")
+            func_export_regex: Pattern[str] = re.compile("(?:sym\\.)(?:.+)\\.dll_(.+)") # dbg
             func_offset_regex: Pattern[str] = re.compile("(?:fcn\\.)(.+)")
             for func_entry in func_list:
                 func_name = func_entry["name"]
