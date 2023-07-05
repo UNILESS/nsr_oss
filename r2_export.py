@@ -105,7 +105,7 @@ class R2Exporter:
                 return
 
             # Create an instance of function property
-            func_name_regex: Pattern[str] = re.compile("(?:(?:sym)|(?:dbg)\\.)(?!imp\\.)(.+)")
+            func_name_regex: Pattern[str] = re.compile("(?:(?:sym)\\.|(?:dbg)\\.)(?!imp\\.)(.+)")
             func_export_regex: Pattern[str] = re.compile("(?:sym\\.)(?:.+)\\.dll_(.+)") # dbg
             func_offset_regex: Pattern[str] = re.compile("(?:fcn\\.)(.+)")
             for func_entry in func_list:
