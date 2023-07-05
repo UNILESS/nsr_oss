@@ -69,7 +69,8 @@ def main():
     # Generate strands
     os.makedirs(args.dest_dir.replace('"', ''), exist_ok=True)
     lifter: VexLifter = VexLifter(bin_path, args.dest_dir, verbose=args.verbose, debug=args.debug)
-    success: bool = lifter.r2_analyze_binary('/opt/homebrew/bin/radare2', target_func_list, parse_bytes) # radare2 path
+    success: bool = \
+        lifter.r2_analyze_binary('/opt/homebrew/bin/radare2', target_func_list, parse_bytes)  # fix to radare2 path
     if not success:
         exit_hook(proc_start, args.verbose)
         exit(2)

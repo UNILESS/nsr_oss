@@ -16,6 +16,8 @@ from bin_meta import BinMeta
 
 MAX_ALLOWED_IRSB_COUNT = 2048
 
+read_elf_path = "/opt/homebrew/opt/binutils/bin/greadelf"
+
 
 class VexLifter:
     # Path
@@ -76,6 +78,7 @@ class VexLifter:
         self.bin_format = bin_prop.format
         self.bin_be = bin_prop.be
         self.bin_arch_str = bin_prop.arch
+        self.THUMB = False
         if self.bin_arch_str == "AMD x86-64 architecture":  # ELF
             self.bin_arch = archinfo.ArchAMD64()
         elif self.bin_arch_str == "AMD 64":  # PE
@@ -90,8 +93,12 @@ class VexLifter:
             else:
                 self.bin_arch = archinfo.ArchMIPS32(endness=archinfo.Endness.LE)
         elif self.bin_arch_str == "ARM":
-            self.bin_arch = archinfo.ArchARM()
-
+            if "Thumb-2" in os.popen(f'{read_elf_path} -A {self.bin_path}').read():
+                print("Thumb-2")
+                self.bin_arch = archinfo.ArchARMCortexM()
+                self.THUMB = True
+            else:
+                self.bin_arch = archinfo.ArchARM()
         return exporter.success
 
     def _lift_func_to_vex(self, func_prop: FuncProperty) -> Optional[List[pyvex.IRSB]]:
@@ -103,13 +110,17 @@ class VexLifter:
         call_count = 0
         irsb_list: List[pyvex.IRSB] = []
         irsb_pos = 0
+        thumb = 0
+        if self.THUMB:
+            thumb = 1
+            func_prop.addr += 1
         try:
             while irsb_pos < func_prop.size:
+
                 addr = func_prop.addr + irsb_pos
                 max_bytes: int = func_prop.size - irsb_pos
-                irsb: pyvex.IRSB = pyvex.lift(func_prop.raw_bytes, addr, self.bin_arch, bytes_offset=irsb_pos,
+                irsb: pyvex.IRSB = pyvex.lift(func_prop.raw_bytes, addr, self.bin_arch, bytes_offset=irsb_pos + thumb,
                                               max_bytes=max_bytes, opt_level=1)
-
                 if irsb.size == 0:
                     break
                 if irsb.jumpkind == "Ijk_NoDecode":
