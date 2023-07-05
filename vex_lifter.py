@@ -16,7 +16,7 @@ from bin_meta import BinMeta
 
 MAX_ALLOWED_IRSB_COUNT = 2048
 
-read_elf_path = "/opt/homebrew/opt/binutils/bin/greadelf"
+read_elf_path = "readelf"
 
 
 class VexLifter:
