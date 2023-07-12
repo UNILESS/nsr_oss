@@ -99,6 +99,8 @@ class VexLifter:
                 self.THUMB = True
             else:
                 self.bin_arch = archinfo.ArchARM()
+        elif self.bin_arch_str == "ARM aarch64":
+            self.bin_arch = archinfo.ArchAArch64()
         return exporter.success
 
     def _lift_func_to_vex(self, func_prop: FuncProperty) -> Optional[List[pyvex.IRSB]]:
@@ -228,8 +230,6 @@ class VexLifter:
             buf: bytes = f.read()
             md5.update(buf)
             sha1.update(buf)
-
-    import os
 
     def add_func_to_pickle(self, func_prop: FuncProperty, strands: Optional[List[VexStrand]],
                            bb_addrs: Optional[List[int]], parsed_bytes: bool):
