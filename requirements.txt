@@ -1,0 +1,9 @@
+angr==8.19.10.30
+archinfo==8.19.10.30
+future==0.18.2
+jsonpickle==1.2
+protobuf==3.10.0
+pycparser==2.19
+pyvex==8.19.10.30
+r2pipe==1.4.1
+six==1.13.0
