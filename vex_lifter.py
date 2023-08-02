@@ -276,6 +276,7 @@ class VexLifter:
 
         dest_file: str = os.path.join(dest_dir, f"{os.path.basename(bin_path)}.pickle")
         with open(dest_file, "wb") as f:
+            # json.dump(self.pb_bin.SerializeToString(), f)
             pickle.dump(self.pb_bin.SerializeToString(), f)
 
         if self.verbose_mode:
