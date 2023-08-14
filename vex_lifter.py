@@ -204,14 +204,14 @@ class VexLifter:
                     strand_list.extend(strands)
 
                 # Encode function into pickle
-                self.add_func_to_pickle(func_prop, strand_list, bb_addr_list, True)
+                self.add_func_to_json(func_prop, strand_list, bb_addr_list, True)
 
                 # Print progress
                 if self.verbose_mode:
                     print(
                         f"[{idx:4}/{func_count:4}] {func_name:<35}: {len(irsb_list):5} IRSB, {len(strand_list):5} strands")
             else:
-                self.add_func_to_pickle(func_prop, None, None, False)
+                self.add_func_to_json(func_prop, None, None, False)
 
                 # Print progress
                 if self.verbose_mode:
@@ -224,12 +224,51 @@ class VexLifter:
     def fit_bin_into_pickle(self, bin_meta: BinMeta):
 
         # Binary Hash
-        md5 = hashlib.md5()
-        sha1 = hashlib.sha1()
         with open(self.bin_path.replace('"', ''), "rb") as f:
             buf: bytes = f.read()
-            md5.update(buf)
-            sha1.update(buf)
+
+    def add_func_to_json(self, func_prop: FuncProperty, strands: Optional[List[VexStrand]],
+                         bb_addrs: Optional[List[int]], parsed_bytes: bool):
+        # 복잡한 객체를 json 직렬화 가능한 형태로 변환하는 코드가 필요합니다.
+        # 예를 들어, VexStrand 객체는 직렬화할 수 없습니다.
+        # strands 변수를 직렬화 가능한 형태로 변환하도록 코드를 추가해야 합니다.
+
+        func_data = {
+            'name': func_prop.name,
+            'addr': func_prop.addr,
+            'size': func_prop.size,
+            'text_offset': func_prop.text_offset,
+            'call_count': func_prop.call_count,
+            'revision': PROTO_FUNC_REV,
+            'strands': [str(s) for s in strands] if parsed_bytes else None,  # 예시로 str() 사용
+            'bb_addrs': bb_addrs if parsed_bytes else None
+        }
+
+        func_dir = os.path.join(self.dest_dir, os.path.basename(self.bin_path))
+        os.makedirs(func_dir, exist_ok=True)
+
+        func_file = os.path.join(func_dir, f"{func_prop.name}.json")
+        with open(func_file, 'w') as file:
+            json.dump(func_data, file)
+
+    def export_json(self, dest_dir):
+        if self.verbose_mode:
+            print()
+            print("[Stage 3] Export json into a file")
+
+        # Save to file
+        if self.verbose_mode:
+            print()
+            print("  Saving...", end="", flush=True)
+        commit_start = time.monotonic()
+
+        dest_file: str = os.path.join(dest_dir, "_.json_strands")
+        with open(dest_file.replace('"', ''), "w") as f:
+            json.dump(self.func_prop_dict, f)
+
+        if self.verbose_mode:
+            commit_end = time.monotonic()
+            print(f"\r  Saved in {commit_end - commit_start:0.3f}s")
 
     def add_func_to_pickle(self, func_prop: FuncProperty, strands: Optional[List[VexStrand]],
                            bb_addrs: Optional[List[int]], parsed_bytes: bool):
