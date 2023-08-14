@@ -79,7 +79,7 @@ def main():
         exit(0)
     lifter.fit_bin_into_pickle(bin_meta)
     lifter.generate_strands(target_func_list, size_filter, parse_bytes)
-    lifter.export_pickle(args.dest_dir)
+    lifter.export_json(args.dest_dir)
 
     exit_hook(proc_start, args.verbose)
 
